@@ -1,0 +1,14 @@
+[Unit]
+Description=Setup spidev
+
+[Service]
+Type=oneshot
+ExecStart=modprobe spidev
+ExecStartPost=dash -c 'echo spidev > /sys/bus/spi/devices/spi0.0/driver_override'
+ExecStartPost=dash -c 'echo spi0.0 > /sys/bus/spi/drivers/spidev/bind'
+ExecStartPost=dash -c 'echo spidev > /sys/bus/spi/devices/spi0.1/driver_override'
+ExecStartPost=dash -c 'echo spi0.1 > /sys/bus/spi/drivers/spidev/bind'
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target

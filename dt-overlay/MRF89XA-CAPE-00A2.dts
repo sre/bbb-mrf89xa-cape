@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2022 Sebastian Reichel
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pinctrl/am33xx.h>
+
+/*
+ * Helper to show loaded overlays under: /proc/device-tree/chosen/overlays/
+ */
+&{/chosen} {
+        overlays {
+                MRF89XA-CAPE-00A2.kernel = __TIMESTAMP__;
+        };
+};
+
+/*
+ * Free up the pins used by the cape from the pinmux helpers.
+ */
+&ocp {
+	P9_15_pinmux { status = "disabled"; };  /* P9_15: GPIO48 = CS MRF89XA CSDAT */
+	P9_11_pinmux { status = "disabled"; };  /* P9_11: GPIO30 = CS MRF89XA CSCON */
+	P9_16_pinmux { status = "disabled"; };  /* P9_16: GPIO51 = CS SMARTLED */
+
+	P9_18_pinmux { status = "disabled"; };  /* P9_18: MOSI */
+	P9_21_pinmux { status = "disabled"; };  /* P9_21: MISO */
+	P9_22_pinmux { status = "disabled"; };  /* P9_22: SCK */
+
+	P9_25_pinmux { status = "disabled"; };  /* P9_25: PLOCK */
+	P9_13_pinmux { status = "disabled"; };  /* P9_13: RESET */
+	P9_23_pinmux { status = "disabled"; };  /* P9_23: IRQ0 */
+	P9_28_pinmux { status = "disabled"; };  /* P9_28: IRQ1 */
+
+	/* avoid bbb.io kernel configuring chipselect pins as input */
+	cape-universal {
+		P9_11 { status = "disabled"; };
+		P9_15 { status = "disabled"; };
+		P9_16 { status = "disabled"; };
+	};
+};
+
+&mcasp0 {
+	status = "disabled";
+};
+
+&am33xx_pinmux {
+	bb_spi0_pins: pinmux_spi_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D1, PIN_INPUT, MUX_MODE0) /* P9_18: spi0_d1 */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_D0, PIN_INPUT, MUX_MODE0) /* P9_21: spi0_d0 */
+			AM33XX_PADCONF(AM335X_PIN_SPI0_SCLK, PIN_INPUT, MUX_MODE0) /* P9_22: spi0_sclk */
+
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A0, PIN_OUTPUT_PULLUP, MUX_MODE7) /* P9_15: gpio1_16.gpio1_16 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_WPN, PIN_OUTPUT_PULLUP, MUX_MODE7) /* P9_11: uart4_rxd.gpio0_30 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A3, PIN_OUTPUT_PULLDOWN, MUX_MODE7) /* P9_16: ehrpwm1b.gpio1_19 */
+		>;
+	};
+
+	// GPIOs for the MRF89XA
+	bb_mrf89xa_pins: pinmux_mrf89xa_pins {
+		pinctrl-single,pins = <
+			AM33XX_PADCONF(AM335X_PIN_GPMC_WPN, PIN_OUTPUT_PULLDOWN, MUX_MODE7) /* P9_13: gpio0_31 */
+			AM33XX_PADCONF(AM335X_PIN_GPMC_A1, PIN_INPUT, MUX_MODE7) /* P9_23: gpio1_17 */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AHCLKX, PIN_INPUT, MUX_MODE7) /* P9_25: gpio3_21 */
+			AM33XX_PADCONF(AM335X_PIN_MCASP0_AHCLKR, PIN_INPUT, MUX_MODE7) /* P9_28: gpio3_17 */
+		>;
+	};
+};	
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&bb_spi0_pins &bb_mrf89xa_pins>;
+
+	// TODO: these are requested as input and basically unused on BBB kernel :(
+	cs-gpios = <&gpio1 16 GPIO_ACTIVE_LOW>, <&gpio0 30 GPIO_ACTIVE_LOW>, <&gpio1 19 GPIO_ACTIVE_LOW>;
+
+	// TODO: the following is ignored :(
+	/delete-property/ ti,spi-num-cs;
+
+	channel@0 { reg = <0>; compatible = "microchip,mrf89xa-data"; };
+	channel@1 { reg = <1>; compatible = "microchip,mrf89xa-cfg"; };
+	channel@2 { reg = <2>; compatible = "szledcolor,sk6812-rgbw"; led-count = <1>; spi-cs-high; };
+};
